@@ -1,5 +1,8 @@
+import java.util.Objects;
+
 public class CustomHashMap<K, V> {
     private static final int DEFAULT_SIZE = 16;
+    private static final float LOAD_FACTOR = 0.75f;
 
     private Node<K, V>[] buckets;
     private int size;
@@ -51,6 +54,10 @@ public class CustomHashMap<K, V> {
         Node<K, V> newNode = new Node<>(key, value, buckets[index]);
         buckets[index] = newNode;
         size++;
+
+        if ((float) size / buckets.length > LOAD_FACTOR) {
+            resize();
+        }
     }
 
     public V get(K key) {
@@ -141,12 +148,144 @@ public class CustomHashMap<K, V> {
             System.out.println("(пусто)");
         }
 
-        System.out.println("Количество записей: " + size);
-
         System.out.println("====================");
     }
 
     public int size() {
         return size;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void resize() {
+        Node<K, V>[] oldBuckets = buckets;
+        buckets = (Node<K, V>[]) new Node[oldBuckets.length * 2];
+
+        for (Node<K, V> head : oldBuckets) {
+            Node<K, V> current = head;
+
+            while (current != null) {
+                Node<K, V> next = current.next;
+
+                int index = getIndex(current.key);
+
+                current.next = buckets[index];
+                buckets[index] = current;
+
+                current = next;
+            }
+        }
+    }
+
+    public int capacity() {
+        return buckets.length;
+    }
+
+    public boolean containsKey(K key) {
+        if (key == null) {
+            return nullKeyNode != null;
+        }
+
+        int index = getIndex(key);
+        Node<K, V> current = buckets[index];
+
+        while (current != null) {
+            if (current.key.equals(key)) {
+                return true;
+            }
+
+            current = current.next;
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (!(obj instanceof CustomHashMap<?, ?> other)) {
+            return false;
+        }
+
+        if (size != other.size) {
+            return false;
+        }
+
+        if (nullKeyNode != null) {
+            if (other.nullKeyNode == null
+                    || !Objects.equals(
+                    nullKeyNode.value, other.nullKeyNode.value)) {
+                return false;
+            }
+        } else if (other.nullKeyNode != null) {
+            return false;
+        }
+
+        for (Node<K, V> bucket : buckets) {
+            Node<K, V> current = bucket;
+
+            while (current != null) {
+                Node<?, ?> otherNode = other.findNode(current.key);
+
+                if (otherNode == null
+                        || !Objects.equals(
+                        current.value, otherNode.value)) {
+                    return false;
+                }
+
+                current = current.next;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 0;
+
+        if (nullKeyNode != null) {
+            result += Objects.hashCode(nullKeyNode.value);
+        }
+
+        for (Node<K, V> bucket : buckets) {
+            Node<K, V> current = bucket;
+
+            while (current != null) {
+                result += current.key.hashCode()
+                        ^ Objects.hashCode(current.value);
+
+                current = current.next;
+            }
+        }
+
+        return result;
+    }
+
+    private Node<K, V> findNode(Object key) {
+        if (key == null) {
+            return nullKeyNode;
+        }
+
+        int index = Math.floorMod(key.hashCode(), buckets.length);
+        Node<K, V> current = buckets[index];
+
+        while (current != null) {
+            if (current.key.equals(key)) {
+                return current;
+            }
+            current = current.next;
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public void clear() {
+        buckets = (Node<K, V>[]) new Node[DEFAULT_SIZE];
+        nullKeyNode = null;
+        size = 0;
     }
 }
